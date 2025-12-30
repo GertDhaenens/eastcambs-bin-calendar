@@ -4,7 +4,7 @@ use clap::Parser;
 use google_calendar;
 use reqwest;
 use scraper;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json;
 use std::sync::{Arc, Mutex};
 
@@ -49,17 +49,23 @@ impl ClientState {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 struct OAuthResponse {
     state: String,
     code: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 enum BagType {
     Black,
     Blue,
     GreenOrBrown,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct CollectionDate {
+    bag_type: BagType,
+    date: NaiveDate,
 }
 
 #[get("/oauth")]
@@ -149,6 +155,7 @@ async fn fetch_collection_dates(
     let date_selector = scraper::Selector::parse("div.col-xs-6.col-sm-6").unwrap();
 
     // Go over each collection & extract the info
+    let mut collection_dates = Vec::new();
     for collection_unparsed in collections_unparsed {
         let bag_str = collection_unparsed
             .select(&bag_selector)
@@ -165,22 +172,19 @@ async fn fetch_collection_dates(
             .last()
             .unwrap();
 
-        // Parse the bag string
-        let bag_type = match bag_str.trim().to_lowercase().as_str() {
-            "black bag" => BagType::Black,
-            "blue bin" => BagType::Blue,
-            "green or brown bin" => BagType::GreenOrBrown,
-            _ => panic!("TODO: Error response"),
-        };
-
-        // Parse the date
-        let date = NaiveDate::parse_from_str(date_str, "%a - %d %b %Y").unwrap();
-
-        println!("bag: {bag_type:?}");
-        println!("date: {date:?}");
+        // Add the collection date
+        collection_dates.push(CollectionDate {
+            bag_type: match bag_str.trim().to_lowercase().as_str() {
+                "black bag" => BagType::Black,
+                "blue bin" => BagType::Blue,
+                "green or brown bin" => BagType::GreenOrBrown,
+                _ => panic!("TODO: Error response"),
+            },
+            date: NaiveDate::parse_from_str(date_str, "%a - %d %b %Y").unwrap(),
+        });
     }
 
-    Ok(HttpResponse::Ok().body(String::from("Got the dates... Do something with them")))
+    Ok(HttpResponse::Ok().json(serde_json::to_string(&collection_dates).unwrap()))
 }
 
 #[actix_web::main]
