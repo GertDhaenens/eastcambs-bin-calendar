@@ -1,0 +1,52 @@
+use clap::Parser;
+use reqwest;
+use scraper;
+
+#[derive(clap::Parser)]
+struct CommandArgs {
+    #[arg(short, long)]
+    urpn: u64,
+}
+
+fn main() {
+    // Parse our arguments
+    let args = CommandArgs::parse();
+
+    // Fetch the response from the web page
+    let request_url = format!(
+        "https://eastcambs-self.achieveservice.com/appshost/firmstep/self/apps/custompage/bincollections?uprn={0}",
+        args.urpn
+    );
+    let response = reqwest::blocking::get(request_url).unwrap().text().unwrap();
+
+    // Parse the HTML that was as response
+    let parsed_html = scraper::Html::parse_document(response.as_str());
+
+    // Find all of the collection divs
+    let selector = scraper::Selector::parse("div.row.collectionsrow:not(.panel-collapse)").unwrap();
+    let collections_unparsed = parsed_html.select(&selector);
+
+    // Create our selectors for the child elements
+    let bag_selector = scraper::Selector::parse("div.col-xs-4.col-sm-4").unwrap();
+    let date_selector = scraper::Selector::parse("div.col-xs-6.col-sm-6").unwrap();
+
+    // Go over each collection & extract the info
+    for collection_unparsed in collections_unparsed {
+        let bag_str = collection_unparsed
+            .select(&bag_selector)
+            .next()
+            .unwrap()
+            .text()
+            .last()
+            .unwrap();
+        let date_str = collection_unparsed
+            .select(&date_selector)
+            .next()
+            .unwrap()
+            .text()
+            .last()
+            .unwrap();
+        println!("bag: {bag_str:?}");
+        println!("date: {date_str:?}");
+    }
+}
