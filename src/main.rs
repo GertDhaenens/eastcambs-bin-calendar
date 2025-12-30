@@ -9,6 +9,13 @@ struct CommandArgs {
     urpn: u64,
 }
 
+#[derive(Debug)]
+enum BagType {
+    Black,
+    Blue,
+    GreenOrBrown,
+}
+
 fn main() -> Result<()> {
     // Parse our arguments
     let args = CommandArgs::parse();
@@ -61,8 +68,16 @@ fn main() -> Result<()> {
             .last()
             .with_context(|| "Failed to extract the text from the date div")?;
 
+        // Parse the bag string
+        let bag_type = match bag_str.trim().to_lowercase().as_str() {
+            "black bag" => BagType::Black,
+            "blue bin" => BagType::Blue,
+            "green or brown bin" => BagType::GreenOrBrown,
+            _ => bail!("Unsupported bag string {bag_str}"),
+        };
+
         // Determine the bag type
-        println!("bag: {bag_str:?}");
+        println!("bag: {bag_type:?}");
         println!("date: {date_str:?}");
     }
 
