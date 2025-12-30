@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use clap::Parser;
 use reqwest;
 use scraper;
@@ -8,7 +9,7 @@ struct CommandArgs {
     urpn: u64,
 }
 
-fn main() {
+fn main() -> Result<()> {
     // Parse our arguments
     let args = CommandArgs::parse();
 
@@ -17,7 +18,10 @@ fn main() {
         "https://eastcambs-self.achieveservice.com/appshost/firmstep/self/apps/custompage/bincollections?uprn={0}",
         args.urpn
     );
-    let response = reqwest::blocking::get(request_url).unwrap().text().unwrap();
+    let response = reqwest::blocking::get(request_url)
+        .with_context(|| format!("Failed to request for urpn {0}", args.urpn))?
+        .text()
+        .unwrap();
 
     // Parse the HTML that was as response
     let parsed_html = scraper::Html::parse_document(response.as_str());
@@ -35,18 +39,22 @@ fn main() {
         let bag_str = collection_unparsed
             .select(&bag_selector)
             .next()
-            .unwrap()
+            .with_context(|| "Failed to parse bag div")?
             .text()
             .last()
-            .unwrap();
+            .with_context(|| "Failed to extract the text from the bag div")?;
         let date_str = collection_unparsed
             .select(&date_selector)
             .next()
-            .unwrap()
+            .with_context(|| "Failed to parse date div")?
             .text()
             .last()
-            .unwrap();
+            .with_context(|| "Failed to extract the text from the date div")?;
+
+        // Determine the bag type
         println!("bag: {bag_str:?}");
         println!("date: {date_str:?}");
     }
+
+    Ok(())
 }

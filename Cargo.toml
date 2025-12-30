@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.100"
 clap = { version = "4.5.53", features = ["derive"] }
 reqwest = { version = "0.13.0", features = ["blocking"] }
 scraper = "0.25.0"
