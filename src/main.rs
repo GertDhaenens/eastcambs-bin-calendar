@@ -1,4 +1,5 @@
 use anyhow::{Context, Result, bail};
+use chrono::NaiveDate;
 use clap::Parser;
 use reqwest;
 use scraper;
@@ -76,9 +77,12 @@ fn main() -> Result<()> {
             _ => bail!("Unsupported bag string {bag_str}"),
         };
 
-        // Determine the bag type
+        // Parse the date
+        let date = NaiveDate::parse_from_str(date_str, "%a - %d %b %Y")
+            .with_context(|| format!("Failed to parse date \"{date_str}\""))?;
+
         println!("bag: {bag_type:?}");
-        println!("date: {date_str:?}");
+        println!("date: {date:?}");
     }
 
     Ok(())
