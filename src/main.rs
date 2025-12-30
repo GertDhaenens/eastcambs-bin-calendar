@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::Parser;
 use reqwest;
 use scraper;
@@ -22,6 +22,16 @@ fn main() -> Result<()> {
         .with_context(|| format!("Failed to request for urpn {0}", args.urpn))?
         .text()
         .unwrap();
+
+    // There is no error reporting if the URPN is not valid, instead it returns a web page which
+    // containts the address selection box again, so we search for this string in order to report
+    // an error
+    if response.contains("Please select an address to view the upcoming collections.") {
+        bail!(
+            "Failed to find collections for URPN {0}, please supply a valid URPN.",
+            args.urpn
+        );
+    }
 
     // Parse the HTML that was as response
     let parsed_html = scraper::Html::parse_document(response.as_str());
