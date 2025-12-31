@@ -2,6 +2,7 @@ use actix_web::{HttpResponse, Responder, Result, get};
 use reqwest;
 use scraper;
 
+use crate::client::*;
 use crate::types::*;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -15,7 +16,7 @@ pub fn config(cfg: &mut actix_web::web::ServiceConfig) {
 
 #[get("/dates")]
 async fn gather_dates(
-    _client_state: actix_web::web::Data<Mutex<AppState>>,
+    _client: actix_web::web::Data<Mutex<Client>>,
     query: actix_web::web::Query<DatesQuery>,
 ) -> Result<impl Responder> {
     println!("Fetching collection dates for urpn {0}...", query.urpn);
