@@ -9,10 +9,7 @@ use serde_json;
 use std::sync::{Arc, Mutex};
 
 #[derive(clap::Parser)]
-struct CommandArgs {
-    #[arg(short, long)]
-    urpn: u64,
-}
+struct CommandArgs {}
 
 struct UserState {
     state: Option<String>,
@@ -30,7 +27,6 @@ impl UserState {
 
 #[derive(Clone)]
 struct ClientState {
-    urpn: u64,
     client_id: String,
     client_secret: String,
     redirect_uri: String,
@@ -38,15 +34,19 @@ struct ClientState {
 }
 
 impl ClientState {
-    pub fn new(urpn: u64, client_id: String, client_secret: String, redirect_uri: String) -> Self {
+    pub fn new(client_id: String, client_secret: String, redirect_uri: String) -> Self {
         Self {
-            urpn: urpn,
             client_id: client_id,
             client_secret: client_secret,
             redirect_uri: redirect_uri,
             user_state: Arc::new(Mutex::new(UserState::new())),
         }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct DatesQuery {
+    urpn: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -121,13 +121,14 @@ async fn authenticate_google_calendar_response(
 #[get("/dates")]
 async fn fetch_collection_dates(
     client_state: actix_web::web::Data<ClientState>,
+    query: actix_web::web::Query<DatesQuery>,
 ) -> Result<impl Responder> {
-    println!("Fetching collection dates...");
+    println!("Fetching collection dates for urpn {0}...", query.urpn);
 
     // Fetch the response from the web page
     let request_url = format!(
         "https://eastcambs-self.achieveservice.com/appshost/firmstep/self/apps/custompage/bincollections?uprn={0}",
-        client_state.urpn
+        query.urpn
     );
     let response = reqwest::get(request_url)
         .await
@@ -198,7 +199,6 @@ async fn main() -> std::result::Result<(), std::io::Error> {
 
     // Fetch our client info from env vars *before* we kick off the server
     let client_state = actix_web::web::Data::new(ClientState::new(
-        args.urpn,
         std::env::var("GOOGLE_OAUTH_CLIENT_ID")
             .expect("Expected \"GOOGLE_OAUTH_CLIENT_ID\" environment variable"),
         std::env::var("GOOGLE_OAUTH_CLIENT_SECRET")
@@ -206,7 +206,6 @@ async fn main() -> std::result::Result<(), std::io::Error> {
         std::env::var("GOOGLE_OAUTH_REDIRECT_URI")
             .expect("Expected \"GOOGLE_OAUTH_REDIRECT_URI\" environment variable"),
     ));
-    println!("URPN: {0}", client_state.urpn);
     println!("Client ID: {0}", client_state.client_id);
     println!("Client Secret: {0}", client_state.client_secret);
     println!("Redirect URI: {0}", client_state.redirect_uri);
