@@ -76,19 +76,14 @@ impl Client {
     pub async fn get_all_calendars(
         &mut self,
     ) -> Option<Vec<google_calendar::types::CalendarListEntry>> {
-        match self.google_access_token {
-            Some(_) => {
-                let google_client = self.get_google_client().await;
-                let calendar_list = google_client.calendar_list();
-                let calendars = calendar_list
-                    .list_all(google_calendar::types::MinAccessRole::Noop, false, false)
-                    .await;
-                match calendars {
-                    Ok(v) => Some(v.body),
-                    Err(_) => None,
-                }
-            }
-            None => None,
+        let google_client = self.get_google_client().await;
+        let calendar_list = google_client.calendar_list();
+        let calendars = calendar_list
+            .list_all(google_calendar::types::MinAccessRole::Noop, false, false)
+            .await;
+        match calendars {
+            Ok(v) => Some(v.body),
+            Err(_) => None,
         }
     }
 
