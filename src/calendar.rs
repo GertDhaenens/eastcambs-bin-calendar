@@ -15,13 +15,9 @@ async fn list_calendars(client: actix_web::web::Data<Mutex<Client>>) -> Result<i
     // Request all calendars
     let calendars = client_access.get_all_calendars().await;
     match calendars {
-        Some(c) => {
-            for calendar in c {
-                println!("Calendar: {0}", calendar.id);
-            }
-            Ok(HttpResponse::Ok()
-                .json(serde_json::json!({ "status": "success", "message": "Calendars listed..." })))
-        }
+        Some(c) => Ok(HttpResponse::Ok().json(
+            serde_json::json!({ "status": "success", "message": "Calendars listed...", "data": c }),
+        )),
         None => Ok(HttpResponse::BadRequest().json(
             serde_json::json!({ "status": "failed", "message": "Failed to list all calendars" }),
         )),
