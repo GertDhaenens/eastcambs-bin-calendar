@@ -199,12 +199,12 @@ async fn main() -> std::result::Result<(), std::io::Error> {
     // Fetch our client info from env vars *before* we kick off the server
     let client_state = actix_web::web::Data::new(ClientState::new(
         args.urpn,
-        std::env::var("GOOGLE_CALENDAR_CLIENT_ID")
-            .expect("Expected \"GOOGLE_CALENDAR_CLIENT_ID\" environment variable"),
-        std::env::var("GOOGLE_CALENDAR_CLIENT_SECRET")
-            .expect("Expected \"GOOGLE_CALENDAR_CLIENT_SECRET\" environment variable"),
-        std::env::var("GOOGLE_CALENDAR_REDIRECT_URI")
-            .expect("Expected \"GOOGLE_CALENDAR_REDIRECT_URI\" environment variable"),
+        std::env::var("GOOGLE_OAUTH_CLIENT_ID")
+            .expect("Expected \"GOOGLE_OAUTH_CLIENT_ID\" environment variable"),
+        std::env::var("GOOGLE_OAUTH_CLIENT_SECRET")
+            .expect("Expected \"GOOGLE_OAUTH_CLIENT_SECRET\" environment variable"),
+        std::env::var("GOOGLE_OAUTH_REDIRECT_URI")
+            .expect("Expected \"GOOGLE_OAUTH_REDIRECT_URI\" environment variable"),
     ));
     println!("URPN: {0}", client_state.urpn);
     println!("Client ID: {0}", client_state.client_id);
@@ -212,7 +212,7 @@ async fn main() -> std::result::Result<(), std::io::Error> {
     println!("Redirect URI: {0}", client_state.redirect_uri);
 
     // Create our web server
-    println!("Starting server...");
+    println!("Starting web server...");
     actix_web::HttpServer::new(move || {
         actix_web::App::new()
             .app_data(client_state.clone())
