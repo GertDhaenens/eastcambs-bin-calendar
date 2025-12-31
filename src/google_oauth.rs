@@ -1,4 +1,4 @@
-use actix_web::{Either, HttpResponse, Responder, Result, get, web::Redirect};
+use actix_web::{HttpResponse, Responder, Result, get, web::Redirect};
 
 use crate::types::*;
 
@@ -14,38 +14,25 @@ pub fn config(cfg: &mut actix_web::web::ServiceConfig) {
 
 #[get("/oauth")]
 async fn authenticate(
-    client_state: actix_web::web::Data<ClientState>,
+    app_state: actix_web::web::Data<Mutex<AppState>>,
 ) -> actix_web::Result<impl Responder> {
     println!("Authenticating Google Calendar...");
 
-    let user_state = client_state.user_state.lock().unwrap();
-    if user_state.code.is_some() {
-        println!("User already authenticated...");
-        return Ok(Either::Left(HttpResponse::Ok().json(
-            serde_json::json!({"status": "success", "message": "User already authorized"}),
-        )));
-    }
-
-    // Create the client from the environment
-    let client = google_calendar::Client::new(
-        &client_state.client_id,
-        &client_state.client_secret,
-        &client_state.redirect_uri,
-        "",
-        "",
-    );
+    // Fetch our google client
+    let mut app_state_access = app_state.lock().unwrap();
+    let google_client = app_state_access.get_client();
 
     // Fetch the auth URL
-    let user_consent_url =
-        client.user_consent_url(&["https://www.googleapis.com/auth/calendar.readonly".to_string()]);
+    let user_consent_url = google_client
+        .user_consent_url(&["https://www.googleapis.com/auth/calendar.readonly".to_string()]);
 
     // Redirect the user to the authentication
-    Ok(Either::Right(Redirect::to(user_consent_url).temporary()))
+    Ok(Redirect::to(user_consent_url).temporary())
 }
 
 #[get("/oauth/response")]
 async fn authenticate_response(
-    client_state: actix_web::web::Data<ClientState>,
+    _app_state: actix_web::web::Data<Mutex<AppState>>,
     response: actix_web::web::Query<OAuthResponse>,
 ) -> Result<impl Responder> {
     // Verify that we have a code
@@ -54,10 +41,8 @@ async fn authenticate_response(
             serde_json::json!({"status": "fail", "message": "Authorization code not provided!"}),
         ));
     }
-    // Cache the state & code on the client state
-    let mut user_state = client_state.user_state.lock().unwrap();
-    user_state.state = Some(response.state.clone());
-    user_state.code = Some(response.code.clone());
+
+    println!("User authenticated...");
     Ok(HttpResponse::Ok()
         .json(serde_json::json!({"status": "success", "message": "User authorized"})))
 }

@@ -1,39 +1,42 @@
-use std::sync::{Arc, Mutex};
-
 pub use chrono::NaiveDate;
+pub use google_calendar;
 pub use serde::{Deserialize, Serialize};
 pub use serde_json;
-
-pub struct UserState {
-    pub state: Option<String>,
-    pub code: Option<String>,
-}
-
-impl UserState {
-    pub fn new() -> Self {
-        Self {
-            state: None,
-            code: None,
-        }
-    }
-}
+pub use std::sync::Mutex;
 
 #[derive(Clone)]
-pub struct ClientState {
+pub struct AppState {
     pub client_id: String,
     pub client_secret: String,
     pub redirect_uri: String,
-    pub user_state: Arc<Mutex<UserState>>,
+
+    client: Option<google_calendar::Client>,
 }
 
-impl ClientState {
+impl AppState {
     pub fn new(client_id: String, client_secret: String, redirect_uri: String) -> Self {
         Self {
             client_id: client_id,
             client_secret: client_secret,
             redirect_uri: redirect_uri,
-            user_state: Arc::new(Mutex::new(UserState::new())),
+            client: None,
         }
+    }
+
+    pub fn get_client(&mut self) -> &google_calendar::Client {
+        match self.client {
+            None => {
+                self.client = Some(google_calendar::Client::new(
+                    &self.client_id,
+                    &self.client_secret,
+                    &self.redirect_uri,
+                    "",
+                    "",
+                ));
+            }
+            _ => {}
+        };
+        self.client.as_ref().unwrap()
     }
 }
 

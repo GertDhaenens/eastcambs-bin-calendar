@@ -16,23 +16,20 @@ async fn main() -> std::result::Result<(), std::io::Error> {
     dotenv::dotenv().ok();
 
     // Fetch our client info from env vars *before* we kick off the server
-    let client_state = actix_web::web::Data::new(ClientState::new(
+    let app_state = actix_web::web::Data::new(Mutex::new(AppState::new(
         std::env::var("GOOGLE_OAUTH_CLIENT_ID")
             .expect("Expected \"GOOGLE_OAUTH_CLIENT_ID\" environment variable"),
         std::env::var("GOOGLE_OAUTH_CLIENT_SECRET")
             .expect("Expected \"GOOGLE_OAUTH_CLIENT_SECRET\" environment variable"),
         std::env::var("GOOGLE_OAUTH_REDIRECT_URI")
             .expect("Expected \"GOOGLE_OAUTH_REDIRECT_URI\" environment variable"),
-    ));
-    println!("Client ID: {0}", client_state.client_id);
-    println!("Client Secret: {0}", client_state.client_secret);
-    println!("Redirect URI: {0}", client_state.redirect_uri);
+    )));
 
     // Create our web server
     println!("Starting web server...");
     actix_web::HttpServer::new(move || {
         actix_web::App::new()
-            .app_data(client_state.clone())
+            .app_data(app_state.clone())
             .configure(google_oauth::config)
             .configure(dates::config)
     })
