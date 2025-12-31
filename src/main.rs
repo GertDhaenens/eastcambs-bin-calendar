@@ -1,6 +1,7 @@
 use actix_web::{Either, HttpResponse, Responder, Result, get, web::Redirect};
 use chrono::NaiveDate;
 use clap::Parser;
+use dotenv;
 use google_calendar;
 use reqwest;
 use scraper;
@@ -193,6 +194,9 @@ async fn main() -> std::result::Result<(), std::io::Error> {
     // Initialise the env logger
     unsafe { std::env::set_var("RUST_LOG", "debug") };
     env_logger::init();
+
+    // Load out dotenv file to populate our env variables
+    dotenv::dotenv().ok();
 
     // Parse our arguments
     let args = CommandArgs::parse();
