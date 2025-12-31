@@ -117,7 +117,7 @@ async fn authenticate_google_calendar_response(
 
 #[get("/dates")]
 async fn fetch_collection_dates(
-    client_state: actix_web::web::Data<ClientState>,
+    _client_state: actix_web::web::Data<ClientState>,
     query: actix_web::web::Query<DatesQuery>,
 ) -> Result<impl Responder> {
     println!("Fetching collection dates for urpn {0}...", query.urpn);
