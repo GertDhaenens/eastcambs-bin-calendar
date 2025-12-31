@@ -1,6 +1,5 @@
 use actix_web::{Either, HttpResponse, Responder, Result, get, web::Redirect};
 use chrono::NaiveDate;
-use clap::Parser;
 use dotenv;
 use google_calendar;
 use reqwest;
@@ -8,9 +7,6 @@ use scraper;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::sync::{Arc, Mutex};
-
-#[derive(clap::Parser)]
-struct CommandArgs {}
 
 struct UserState {
     state: Option<String>,
@@ -197,9 +193,6 @@ async fn main() -> std::result::Result<(), std::io::Error> {
 
     // Load out dotenv file to populate our env variables
     dotenv::dotenv().ok();
-
-    // Parse our arguments
-    let args = CommandArgs::parse();
 
     // Fetch our client info from env vars *before* we kick off the server
     let client_state = actix_web::web::Data::new(ClientState::new(
