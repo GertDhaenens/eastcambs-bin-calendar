@@ -4,6 +4,7 @@ mod calendar;
 mod client;
 mod dates;
 mod google_oauth;
+mod setup;
 mod types;
 
 use crate::client::*;
@@ -18,6 +19,8 @@ async fn main() -> std::result::Result<(), std::io::Error> {
     // Load out dotenv file to populate our env variables
     dotenv::dotenv().ok();
 
+    // Initialise handlebars
+
     // Fetch our client info from env vars *before* we kick off the server
     let client = actix_web::web::Data::new(Mutex::new(Client::new()));
 
@@ -29,6 +32,7 @@ async fn main() -> std::result::Result<(), std::io::Error> {
             .configure(google_oauth::config)
             .configure(dates::config)
             .configure(calendar::config)
+            .configure(setup::config)
     })
     .bind("localhost:8080")?
     .run()

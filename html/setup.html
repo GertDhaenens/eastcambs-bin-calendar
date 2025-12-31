@@ -1,0 +1,21 @@
+<html>
+    <body>
+        <form action="/setup" method="POST">
+            <div>
+                <label for="urpn">URPN:</label>
+                <input name="urpn" id="urpn" value="{{urpn}}" />
+            </div>
+            <div>
+                <label for="calendar_id">Calendar:</label>
+                <select name="calendar_id" id="calendar_id">
+                {{#each calendars}}
+                <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+                {{/each}}
+                </select>
+            </div>
+            <div>
+                <button type="submit" id="save">Save</button>
+            </div>
+        </form>
+    <body>
+</html>

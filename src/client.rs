@@ -9,6 +9,8 @@ pub struct Client {
     keyring_entry: Arc<keyring::Entry>,
     google_client: Option<google_calendar::Client>,
     google_access_token: Option<google_calendar::AccessToken>,
+    urpn: Option<u64>,
+    calendar_id: Option<String>,
 }
 
 impl Client {
@@ -34,6 +36,8 @@ impl Client {
             ),
             google_client: None,
             google_access_token: None,
+            urpn: None,
+            calendar_id: None,
         }
     }
 
@@ -85,6 +89,22 @@ impl Client {
             Ok(v) => Some(v.body),
             Err(_) => None,
         }
+    }
+
+    pub fn set_urpn(&mut self, urpn: u64) {
+        self.urpn = Some(urpn);
+    }
+
+    pub fn get_urpn(&self) -> Option<u64> {
+        self.urpn
+    }
+
+    pub fn set_calendar_id(&mut self, calendar_id: String) {
+        self.calendar_id = Some(calendar_id);
+    }
+
+    pub fn get_calendar_id(&self) -> Option<String> {
+        self.calendar_id.clone()
     }
 
     async fn get_google_client(&mut self) -> &mut google_calendar::Client {
