@@ -159,12 +159,15 @@ async fn get_collection_dates(
 
 #[actix_web::main]
 async fn main() -> std::result::Result<(), std::io::Error> {
-    // Initialise the env logger
-    unsafe { std::env::set_var("RUST_LOG", "debug") };
-    env_logger::init();
+    // Debug-only features
+    if cfg!(debug_assertions) {
+        // Initialise the env logger
+        unsafe { std::env::set_var("RUST_LOG", "debug") };
+        env_logger::init();
 
-    // Load out dotenv file to populate our env variables
-    dotenv::dotenv().ok();
+        // Load out dotenv file to populate our env variables
+        dotenv::dotenv().ok();
+    }
 
     // Fetch our local IP address to bind to
     let local_ip = local_ip_address::local_ip().expect("Failed to fetch local IP address");
