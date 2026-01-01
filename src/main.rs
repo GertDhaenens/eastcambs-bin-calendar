@@ -1,11 +1,11 @@
 use actix_web::{HttpResponse, Responder, Result, get};
 use chrono::NaiveDate;
-use ics;
-use serde::{Deserialize, Serialize};
-use std::fmt::Write;
-use uuid;
-
 use dotenv;
+use ics;
+use local_ip_address;
+use serde::{Deserialize, Serialize};
+use std::{fmt::Write, net::SocketAddr};
+use uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 enum BagType {
@@ -114,10 +114,13 @@ async fn main() -> std::result::Result<(), std::io::Error> {
     // Load out dotenv file to populate our env variables
     dotenv::dotenv().ok();
 
+    // Fetch our local IP address to bind to
+    let local_ip = local_ip_address::local_ip().expect("Failed to fetch local IP address");
+
     // Create our web server
     println!("Starting web server...");
     actix_web::HttpServer::new(move || actix_web::App::new().service(get_collection_dates))
-        .bind("localhost:8080")?
+        .bind(SocketAddr::new(local_ip, 8080))?
         .run()
         .await
 }
