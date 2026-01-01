@@ -703,7 +703,6 @@ dependencies = [
  "chrono",
  "dotenv",
  "env_logger",
- "ics",
  "local-ip-address",
  "reqwest",
  "scraper",
@@ -1136,12 +1135,6 @@ checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
 dependencies = [
  "cc",
 ]
-
-[[package]]
-name = "ics"
-version = "0.5.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ebec52f461ade2d19e7b594ecbcd0723ba0ab0eefa8aae2281b78ff461a91fa"
 
 [[package]]
 name = "icu_collections"
@@ -2188,6 +2181,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha1_smol"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbfa15b3dddfee50a0fff136974b3e1bde555604ba463834a7eb7deb6417705d"
+
+[[package]]
 name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2645,6 +2644,7 @@ checksum = "e2e054861b4bd027cd373e18e8d8d8e6548085000e41290d95ce0c373a654b4a"
 dependencies = [
  "getrandom 0.3.4",
  "js-sys",
+ "sha1_smol",
  "wasm-bindgen",
 ]
 
