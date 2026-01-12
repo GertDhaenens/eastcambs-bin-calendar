@@ -3,6 +3,7 @@ use chrono::NaiveDate;
 use dotenv;
 use local_ip_address;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::net::SocketAddr;
 use std::sync::Mutex;
 use uuid;
@@ -25,19 +26,18 @@ enum BagType {
     GreenOrBrown,
 }
 
-#[get("/calendar")]
-async fn get_collection_dates(
-    app_state: actix_web::web::Data<Mutex<AppState>>,
-    query: actix_web::web::Query<CalendarQuery>,
-) -> Result<impl Responder> {
-    println!("Fetching collection dates for urpn {0}...", query.urpn);
+struct Collection {
+    date: NaiveDate,
+    bag_type: BagType,
+}
 
-    let mut app_state_access = app_state.lock().unwrap();
+async fn get_collection_dates(urpn: u64) -> Result<Vec<Collection>> {
+    println!("Fetching collection dates for urpn {0}...", urpn);
 
     // Fetch the response from the web page
     let request_url = format!(
         "https://eastcambs-self.achieveservice.com/appshost/firmstep/self/apps/custompage/bincollections?uprn={0}",
-        query.urpn
+        urpn
     );
     let response = reqwest::get(request_url)
         .await
@@ -64,6 +64,50 @@ async fn get_collection_dates(
     let bag_selector = scraper::Selector::parse("div.col-xs-4.col-sm-4").unwrap();
     let date_selector = scraper::Selector::parse("div.col-xs-6.col-sm-6").unwrap();
 
+    // Go over each collection & extract the info
+    let mut collections = Vec::new();
+    for collection_unparsed in collections_unparsed {
+        let bag_str = collection_unparsed
+            .select(&bag_selector)
+            .next()
+            .unwrap()
+            .text()
+            .last()
+            .unwrap();
+        let date_str = collection_unparsed
+            .select(&date_selector)
+            .next()
+            .unwrap()
+            .text()
+            .last()
+            .unwrap();
+
+        // Parse the data
+        let collection_date = NaiveDate::parse_from_str(date_str, "%a - %d %b %Y").unwrap();
+
+        let bag_type = match bag_str.trim().to_lowercase().as_str() {
+            "black bag" => BagType::Black,
+            "blue bin" => BagType::Blue,
+            "green or brown bin" => BagType::GreenOrBrown,
+            _ => panic!("TODO: Error response"),
+        };
+
+        collections.push(Collection {
+            date: collection_date,
+            bag_type: bag_type,
+        })
+    }
+
+    Ok(collections)
+}
+
+#[get("/calendar")]
+async fn get_ics_file(
+    app_state: actix_web::web::Data<Mutex<AppState>>,
+    query: actix_web::web::Query<CalendarQuery>,
+) -> Result<impl Responder> {
+    let mut app_state_access = app_state.lock().unwrap();
+
     // Create our calendar string
     let mut calendar_string = String::new();
 
@@ -87,42 +131,22 @@ async fn get_collection_dates(
         "eastcambs-bin-collection".as_bytes(),
     );
 
-    // Go over each collection & extract the info
-    for collection_unparsed in collections_unparsed {
-        let bag_str = collection_unparsed
-            .select(&bag_selector)
-            .next()
-            .unwrap()
-            .text()
-            .last()
-            .unwrap();
-        let date_str = collection_unparsed
-            .select(&date_selector)
-            .next()
-            .unwrap()
-            .text()
-            .last()
-            .unwrap();
+    // Fetch the collection info
+    let collections = get_collection_dates(query.urpn).await?;
 
-        // Parse the date
+    // Go over each collection & add an event to the calendar
+    for collection in collections {
         // For all day events - the DTSTART is the day, and the DTEND is the next day
-        let start_date = NaiveDate::parse_from_str(date_str, "%a - %d %b %Y").unwrap();
+        let start_date = collection.date;
         let end_date = start_date.checked_add_days(chrono::Days::new(1)).unwrap();
 
         // Generate our start and end date strings
         let start_date_string = start_date.format("%Y%m%dT000000").to_string();
         let end_date_string = end_date.format("%Y%m%dT000000").to_string();
 
-        // Determine the name of our event based on the bag type
-        let bag_type = match bag_str.trim().to_lowercase().as_str() {
-            "black bag" => BagType::Black,
-            "blue bin" => BagType::Blue,
-            "green or brown bin" => BagType::GreenOrBrown,
-            _ => panic!("TODO: Error response"),
-        };
         let event_name = format!(
             "Bin collection - {}",
-            match bag_type {
+            match collection.bag_type {
                 BagType::Black => String::from("black bag(s)"),
                 BagType::Blue => String::from("blue bin(s)"),
                 BagType::GreenOrBrown => String::from("Green or brown bin(s)"),
@@ -157,6 +181,45 @@ async fn get_collection_dates(
         .body(calendar_string))
 }
 
+#[get("/trmnl")]
+async fn get_trmnl_json(
+    _app_state: actix_web::web::Data<Mutex<AppState>>,
+    query: actix_web::web::Query<CalendarQuery>,
+) -> Result<impl Responder> {
+    // Fetch the dates
+    let collections = get_collection_dates(query.urpn).await?;
+
+    // We only care about the most recent one
+    let collection = &collections[0];
+
+    // Build some nicely formatted strings
+    let type_str = match collection.bag_type {
+        BagType::Black => String::from("Black bag(s)"),
+        BagType::Blue => String::from("Blue bin(s)"),
+        BagType::GreenOrBrown => String::from("Green or brown bin(s)"),
+    };
+
+    // Format our date
+    let date_str = collection.date.format("%a, %d %h").to_string();
+
+    // Calculate the time until the collection
+    let time_now_utc = chrono::offset::Utc::now();
+    let date_now = time_now_utc.date_naive();
+    let time_diff = NaiveDate::signed_duration_since(collection.date, date_now);
+    let days_until = time_diff.num_days();
+    let time_until_str = if days_until == 1 {
+        String::from("1 day")
+    } else {
+        format!("{} days", days_until)
+    };
+
+    Ok(actix_web::web::Json(json!({
+        "type": type_str,
+        "date": date_str,
+        "time_until": time_until_str
+    })))
+}
+
 #[actix_web::main]
 async fn main() -> std::result::Result<(), std::io::Error> {
     // Debug-only features
@@ -180,7 +243,8 @@ async fn main() -> std::result::Result<(), std::io::Error> {
     actix_web::HttpServer::new(move || {
         actix_web::App::new()
             .app_data(app_state.clone())
-            .service(get_collection_dates)
+            .service(get_ics_file)
+            .service(get_trmnl_json)
     })
     .bind(SocketAddr::new(local_ip, 8080))?
     .run()
