@@ -1,9 +1,11 @@
 use actix_web::{HttpResponse, Responder, Result, get};
+use bitflags::bitflags;
 use chrono::NaiveDate;
 use dotenv;
 use local_ip_address;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Mutex;
 use uuid;
@@ -19,16 +21,44 @@ struct CalendarQuery {
     nocache: Option<bool>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-enum BagType {
-    Black,
-    Blue,
-    GreenOrBrown,
+bitflags! {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct BagType: u8 {
+        const NONE = 0;
+        const BLACK = 1 << 0;
+        const BLUE = 1 << 1;
+        const GREEN_OR_BROWN = 1 << 2;
+    }
+}
+
+impl BagType {
+    pub fn to_string(&self) -> String {
+        let mut strings = Vec::new();
+        if self.intersects(BagType::BLACK) {
+            strings.push("black");
+        }
+        if self.intersects(BagType::BLUE) {
+            strings.push("blue");
+        }
+        if self.intersects(BagType::GREEN_OR_BROWN) {
+            strings.push("green/brown");
+        }
+        if strings.is_empty() {
+            String::from("none")
+        } else if strings.len() == 1 {
+            String::from(strings[0])
+        } else if strings.len() == 2 {
+            format!("{} & {}", strings[0], strings[1])
+        } else {
+            let (last, other) = strings.split_last().unwrap();
+            format!("{} & {}", other.join(", "), last)
+        }
+    }
 }
 
 struct Collection {
     date: NaiveDate,
-    bag_type: BagType,
+    bag_types: BagType,
 }
 
 async fn get_collection_dates(urpn: u64) -> Result<Vec<Collection>> {
@@ -65,7 +95,7 @@ async fn get_collection_dates(urpn: u64) -> Result<Vec<Collection>> {
     let date_selector = scraper::Selector::parse("div.col-xs-6.col-sm-6").unwrap();
 
     // Go over each collection & extract the info
-    let mut collections = Vec::new();
+    let mut collections_by_date = HashMap::new();
     for collection_unparsed in collections_unparsed {
         let bag_str = collection_unparsed
             .select(&bag_selector)
@@ -82,21 +112,37 @@ async fn get_collection_dates(urpn: u64) -> Result<Vec<Collection>> {
             .last()
             .unwrap();
 
-        // Parse the data
+        // Parse the date
         let collection_date = NaiveDate::parse_from_str(date_str, "%a - %d %b %Y").unwrap();
 
-        let bag_type = match bag_str.trim().to_lowercase().as_str() {
-            "black bag" => BagType::Black,
-            "blue bin" => BagType::Blue,
-            "green or brown bin" => BagType::GreenOrBrown,
+        // Parse the bag types
+        let bag_types = match bag_str.trim().to_lowercase().as_str() {
+            "black bag" => BagType::BLACK,
+            "blue bin" => BagType::BLUE,
+            "green or brown bin" => BagType::GREEN_OR_BROWN,
             _ => panic!("TODO: Error response"),
         };
 
-        collections.push(Collection {
-            date: collection_date,
-            bag_type: bag_type,
-        })
+        // We can have multiple collections on the same day - so combine them
+        if collections_by_date.contains_key(&collection_date) {
+            let collection: &mut Collection =
+                collections_by_date.get_mut(&collection_date).unwrap();
+            collection.bag_types |= bag_types;
+        } else {
+            collections_by_date.insert(
+                collection_date,
+                Collection {
+                    date: collection_date,
+                    bag_types: bag_types,
+                },
+            );
+        }
     }
+
+    // Build our vector by extracting the elements from our hash map
+    // now that they have been combined, and sort them based on date
+    let mut collections = collections_by_date.into_values().collect::<Vec<_>>();
+    collections.sort_by(|a, b| a.date.cmp(&b.date));
 
     Ok(collections)
 }
@@ -144,14 +190,7 @@ async fn get_ics_file(
         let start_date_string = start_date.format("%Y%m%dT000000").to_string();
         let end_date_string = end_date.format("%Y%m%dT000000").to_string();
 
-        let event_name = format!(
-            "Bin collection - {}",
-            match collection.bag_type {
-                BagType::Black => String::from("black bag(s)"),
-                BagType::Blue => String::from("blue bin(s)"),
-                BagType::GreenOrBrown => String::from("Green or brown bin(s)"),
-            }
-        );
+        let event_name = format!("Bin collection - {}", collection.bag_types.to_string());
 
         // Generate a unique UUID based on the date and name
         // This allows duplicate events to be matched in case of updates
@@ -193,11 +232,7 @@ async fn get_trmnl_json(
     let collection = &collections[0];
 
     // Build some nicely formatted strings
-    let type_str = match collection.bag_type {
-        BagType::Black => String::from("Black bag(s)"),
-        BagType::Blue => String::from("Blue bin(s)"),
-        BagType::GreenOrBrown => String::from("Green or brown bin(s)"),
-    };
+    let type_str = collection.bag_types.to_string();
 
     // Format our date
     let date_str = collection.date.format("%a, %d %h").to_string();
